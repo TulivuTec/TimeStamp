@@ -20,6 +20,7 @@ const superadminRoutes = require("./routes/superadminRoutes");
 const jobRoutes = require("./routes/jobRoutes");
 const trainingRoutes = require("./routes/trainingRoutes");
 const activityRoutes = require("./routes/activityRoutes");
+const operationsRoutes = require("./routes/operationsRoutes");
 const { stripeWebhookHandler } = require("./controllers/stripeWebhookController");
 const { handlePayrollWebhook } = require("./controllers/payrollController");
 
@@ -301,6 +302,7 @@ app.use("/api/missed-punch", missedPunchRoutes);
 app.use("/api/superadmin", superadminRoutes);
 app.use("/api/training", trainingRoutes);
 app.use("/api/activities", activityRoutes);
+app.use("/api/operations", operationsRoutes);
 
 // Temporary: Gusto OAuth callback handler for token generation
 app.get("/api/auth/gusto/callback", async (req, res) => {

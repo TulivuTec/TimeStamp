@@ -160,6 +160,15 @@ async function updateSchedule(req, res) {
     const schedule = await WeeklyActivitySchedule.findOne({ _id: req.params.id, tenantId });
     if (!schedule) return res.status(404).json({ message: "Schedule not found." });
 
+    if (req.user?.role !== "admin") {
+      if (schedule.status !== "published") {
+        return res.status(403).json({ message: "Only published schedules can be edited by staff." });
+      }
+      if (req.body.status != null) {
+        return res.status(403).json({ message: "Only admins can change schedule status." });
+      }
+    }
+
     if (req.body.status != null) schedule.status = req.body.status;
     if (Array.isArray(req.body.activities)) schedule.activities = req.body.activities;
 

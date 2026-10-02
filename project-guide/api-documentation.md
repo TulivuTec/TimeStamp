@@ -67,6 +67,39 @@ TimeStamp uses **one-time invite codes** for joining an existing facility.
 Tenant requirement:
 - If the current account has no `tenantId`, these endpoints return `403 { code: "TENANT_REQUIRED" }`.
 
+## Calendar, Operations tasks, and task timers (`/operations`)
+
+All routes require authentication and a tenant assignment. Calendar events are shared across the tenant. Task sessions are independent of timeclock shifts and are not included in payroll hours.
+
+### Shared calendar events (Admin and staff)
+
+- `GET /operations/calendar-events?from=<ISO>&to=<ISO>`
+	- Returns `{ events }`; optional date bounds include events that overlap the range.
+- `POST /operations/calendar-events`
+	- Body: `{ title, startAt, endAt?, details? }`; returns `{ event }`.
+- `PATCH /operations/calendar-events/:id`
+	- Accepts the same fields partially; events are tenant-scoped.
+- `DELETE /operations/calendar-events/:id`
+	- Deletes an event in the current tenant.
+
+Published weekly activities are available through `GET /activities/schedules`. Admins create and publish schedules. Staff can edit activities only on published schedules; only admins can change publish status or delete schedules.
+
+### Operations Kanban (Admin-only)
+
+- `GET /operations/tasks` returns `{ tasks }`.
+- `POST /operations/tasks` body: `{ title, details?, dueDate? }`; returns `{ task }`.
+- `PATCH /operations/tasks/:id` accepts partial task fields, including `status: "todo" | "doing" | "done"`.
+- `DELETE /operations/tasks/:id` deletes a task in the current tenant.
+
+### Task timers (Admin and staff)
+
+- `GET /operations/task-sessions/my` returns the signed-in user's recent `{ sessions }`.
+- `POST /operations/task-sessions/start` body: `{ taskName }`; returns `{ session }`.
+- `POST /operations/task-sessions/stop` ends the current task timer and returns `{ session }`.
+- `GET /operations/task-sessions` (Admin-only) returns recent tenant task sessions with staff details.
+
+Only one task timer may be active per staff member at a time. Task timers can run whether the staff member is clocked in or out and do not modify timeclock entries.
+
 ## Admin (`/admin`) (Admin-only)
 
 - `GET /admin/timelogs`:

@@ -183,6 +183,14 @@ a {
   gap: 8px;
 }
 
+.operationsTaskForm {
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1.5fr) 160px auto;
+}
+
+.operationsKanbanBoard {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .calendarDow {
   color: var(--muted);
   font-weight: 600;
@@ -235,6 +243,7 @@ a {
 
 .noteEditor textarea {
   width: 100%;
+  box-sizing: border-box;
   min-height: 110px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -266,6 +275,37 @@ a {
 
 .printPageBreak {
   /* Only forces a break in print mode */
+}
+
+@media (max-width: 760px) {
+  .operationsTaskForm {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .operationsKanbanBoard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .calendarGrid {
+    gap: 4px;
+  }
+
+  .calendarDow {
+    font-size: 10px;
+  }
+
+  .dayCell {
+    min-height: 38px;
+    padding: 5px;
+    border-radius: 6px;
+  }
+
+  .noteDot {
+    top: 5px;
+    right: 5px;
+  }
 }
 
 @media print {

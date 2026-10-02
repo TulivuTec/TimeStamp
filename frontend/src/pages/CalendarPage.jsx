@@ -10,7 +10,7 @@ export default function CalendarPage() {
         <div className="container">
           <h1 className="pageTitle">Calendar</h1>
           <p className="pageSubtitle">
-            A small planner for personal notes (saved locally in this browser).
+            Shared events and published activities for your facility.
           </p>
           <Calendar />
         </div>

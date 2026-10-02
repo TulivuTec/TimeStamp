@@ -3,6 +3,8 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import Header from "../components/Header";
 import ShiftNoteTemplate from "../components/ShiftNoteTemplate";
+import TaskTimerPanel from "../components/TaskTimerPanel";
+import UpcomingCalendarPanel from "../components/UpcomingCalendarPanel";
 import api from "../services/api";
 import { listMyJobs } from "../services/jobs";
 import { getMe } from "../services/me";
@@ -398,6 +400,9 @@ const CaregiverDashboard = () => {
             {error}
           </div>
         )}
+
+        <UpcomingCalendarPanel />
+        <TaskTimerPanel />
 
         <div style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
           <div

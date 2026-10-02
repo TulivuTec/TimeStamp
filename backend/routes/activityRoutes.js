@@ -27,7 +27,7 @@ router.get("/schedules", auth, authorizeRoles("admin", "staff"), listSchedules);
 router.post("/schedules", auth, authorizeRoles("admin"), createSchedule);
 router.get("/schedules/:id/export", auth, authorizeRoles("admin", "staff"), exportSchedule);
 router.get("/schedules/:id", auth, authorizeRoles("admin", "staff"), getSchedule);
-router.patch("/schedules/:id", auth, authorizeRoles("admin"), updateSchedule);
+router.patch("/schedules/:id", auth, authorizeRoles("admin", "staff"), updateSchedule);
 router.delete("/schedules/:id", auth, authorizeRoles("admin"), deleteSchedule);
 
 module.exports = router;
