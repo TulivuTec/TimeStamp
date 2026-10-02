@@ -57,3 +57,27 @@ export async function stopTaskSession() {
   const response = await api.post("/operations/task-sessions/stop");
   return response.data?.session || null;
 }
+
+export async function listWeeklyMenus(params = {}) {
+  const response = await api.get("/operations/menus", { params });
+  return Array.isArray(response.data?.menus) ? response.data.menus : [];
+}
+
+export async function createWeeklyMenu(payload) {
+  const response = await api.post("/operations/menus", payload);
+  return response.data?.menu || null;
+}
+
+export async function updateWeeklyMenu(id, payload) {
+  const response = await api.patch(`/operations/menus/${id}`, payload);
+  return response.data?.menu || null;
+}
+
+export async function deleteWeeklyMenu(id) {
+  await api.delete(`/operations/menus/${id}`);
+}
+
+export async function copyPreviousWeeklyMenu(weekStartDate, replace = false) {
+  const response = await api.post("/operations/menus/copy-previous", { weekStartDate, replace });
+  return response.data?.menu || null;
+}

@@ -191,6 +191,10 @@ a {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.weeklyMenuMealForm {
+  grid-template-columns: minmax(130px, 180px) minmax(150px, 1fr) minmax(180px, 2fr) auto;
+}
+
 .calendarDow {
   color: var(--muted);
   font-weight: 600;
@@ -284,6 +288,10 @@ a {
 
   .operationsKanbanBoard {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .weeklyMenuMealForm {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 }
 

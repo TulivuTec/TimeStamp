@@ -3,6 +3,7 @@ import { listSchedules, updateSchedule } from "../services/activities";
 import {
   createCalendarEvent,
   deleteCalendarEvent,
+  listWeeklyMenus,
   listCalendarEvents,
   updateCalendarEvent,
 } from "../services/operations";
@@ -81,6 +82,7 @@ export default function Calendar() {
   const [draft, setDraft] = useState(() => notes[toDateKey(today)] || "");
   const [events, setEvents] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [eventForm, setEventForm] = useState(null);
@@ -97,12 +99,14 @@ export default function Calendar() {
     try {
       const from = new Date(year, month, 1).toISOString();
       const to = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
-      const [nextEvents, nextSchedules] = await Promise.all([
+      const [nextEvents, nextSchedules, nextMenus] = await Promise.all([
         listCalendarEvents({ from, to }),
         listSchedules(),
+        listWeeklyMenus({ from, to }),
       ]);
       setEvents(nextEvents);
       setSchedules(nextSchedules);
+      setMenus(nextMenus);
     } catch (err) {
       setError(err.response?.data?.message || "Could not load shared calendar.");
     } finally {
@@ -119,6 +123,18 @@ export default function Calendar() {
   }, [cursor]);
 
   const scheduledActivities = useMemo(() => getScheduledActivities(schedules), [schedules]);
+  const scheduledMeals = useMemo(() => menus
+    .filter((menu) => menu.status === "published")
+    .flatMap((menu) => {
+      const [menuYear, menuMonth, menuDay] = new Date(menu.weekStartDate).toISOString().slice(0, 10).split("-").map(Number);
+      return (menu.meals || []).map((meal, index) => ({
+        key: `${menu._id}-${meal._id || index}`,
+        kind: "menu",
+        title: meal.mealName,
+        details: meal.description || "",
+        startAt: new Date(menuYear, menuMonth - 1, menuDay + meal.day),
+      }));
+    }), [menus]);
 
   const entriesByDate = useMemo(() => {
     const byDate = new Map();
@@ -149,9 +165,10 @@ export default function Calendar() {
       }
     });
     scheduledActivities.forEach((activity) => add(toDateKey(activity.startAt), activity));
+    scheduledMeals.forEach((meal) => add(toDateKey(meal.startAt), meal));
     byDate.forEach((entries) => entries.sort((a, b) => a.startAt - b.startAt));
     return byDate;
-  }, [events, month, scheduledActivities, year]);
+  }, [events, month, scheduledActivities, scheduledMeals, year]);
 
   const { cells, noteKeysThisMonth } = useMemo(() => {
     const firstDow = new Date(year, month, 1).getDay(); // 0..6
@@ -399,11 +416,11 @@ export default function Calendar() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <strong style={{ overflowWrap: "anywhere" }}>{entry.title}</strong>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: entry.kind === "activity" ? "#166534" : "#075985", background: entry.kind === "activity" ? "#dcfce7" : "#e0f2fe", padding: "3px 6px", borderRadius: 4 }}>{entry.kind === "activity" ? "Activity" : "Event"}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: entry.kind === "activity" || entry.kind === "menu" ? "#166534" : "#075985", background: entry.kind === "activity" || entry.kind === "menu" ? "#dcfce7" : "#e0f2fe", padding: "3px 6px", borderRadius: 4 }}>{entry.kind === "activity" ? "Activity" : entry.kind === "menu" ? "Menu" : "Event"}</span>
                   </div>
                   <p style={{ margin: "5px 0 0", fontSize: 13, color: "#475569" }}>
-                    {entry.continues ? "Continues" : new Date(entry.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                    {entry.kind === "activity" ? ` · ${entry.durationMinutes} min` : entry.endAt ? ` – ${new Date(entry.endAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
+                    {entry.kind === "menu" ? "Meal" : entry.continues ? "Continues" : new Date(entry.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                    {entry.kind === "activity" ? ` · ${entry.durationMinutes} min` : entry.kind === "event" && entry.endAt ? ` – ${new Date(entry.endAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
                   </p>
                   {entry.details && <p style={{ whiteSpace: "pre-wrap", margin: "5px 0 0", color: "#475569", fontSize: 13 }}>{entry.details}</p>}
                 </div>
@@ -413,12 +430,12 @@ export default function Calendar() {
                       <button type="button" className="btn" onClick={() => beginEditEvent(entry)}>Edit</button>
                       <button type="button" className="btn" onClick={() => removeEvent(entry)} aria-label={`Delete ${entry.title}`}>Delete</button>
                     </>
-                  ) : (
+                  ) : entry.kind === "activity" ? (
                     <>
                       <button type="button" className="btn" onClick={() => beginEditActivity(entry)}>Edit</button>
                       <button type="button" className="btn" onClick={() => removeActivity(entry)} aria-label={`Remove ${entry.title}`}>Remove</button>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </article>
             ))}

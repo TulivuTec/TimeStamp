@@ -15,6 +15,11 @@ const {
   listTaskSessions,
   startTaskSession,
   stopTaskSession,
+  listWeeklyMenus,
+  createWeeklyMenu,
+  updateWeeklyMenu,
+  deleteWeeklyMenu,
+  copyPreviousWeeklyMenu,
 } = require("../controllers/operationsController");
 
 router.use(auth);
@@ -33,5 +38,11 @@ router.get("/task-sessions/my", authorizeRoles("admin", "staff"), listMyTaskSess
 router.post("/task-sessions/start", authorizeRoles("admin", "staff"), startTaskSession);
 router.post("/task-sessions/stop", authorizeRoles("admin", "staff"), stopTaskSession);
 router.get("/task-sessions", authorizeRoles("admin"), listTaskSessions);
+
+router.get("/menus", authorizeRoles("admin", "staff"), listWeeklyMenus);
+router.post("/menus", authorizeRoles("admin"), createWeeklyMenu);
+router.post("/menus/copy-previous", authorizeRoles("admin"), copyPreviousWeeklyMenu);
+router.patch("/menus/:id", authorizeRoles("admin"), updateWeeklyMenu);
+router.delete("/menus/:id", authorizeRoles("admin"), deleteWeeklyMenu);
 
 module.exports = router;

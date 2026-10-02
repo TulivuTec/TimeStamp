@@ -15,6 +15,12 @@ jest.mock("../models/TaskSession", () => ({
   findOne: jest.fn(),
   create: jest.fn(),
 }));
+jest.mock("../models/WeeklyMenu", () => ({
+  find: jest.fn(),
+  findOne: jest.fn(),
+  create: jest.fn(),
+  findOneAndDelete: jest.fn(),
+}));
 jest.mock("../models/WeeklyActivitySchedule", () => ({ findOne: jest.fn() }));
 jest.mock("../models/ActivityTemplate", () => ({}));
 jest.mock("../models/staff", () => ({ findById: jest.fn(), findOne: jest.fn() }));
@@ -22,6 +28,7 @@ jest.mock("../models/staff", () => ({ findById: jest.fn(), findOne: jest.fn() })
 const CalendarEvent = require("../models/CalendarEvent");
 const OperationsTask = require("../models/OperationsTask");
 const TaskSession = require("../models/TaskSession");
+const WeeklyMenu = require("../models/WeeklyMenu");
 const Staff = require("../models/staff");
 const WeeklyActivitySchedule = require("../models/WeeklyActivitySchedule");
 const { updateSchedule } = require("../controllers/activityController");
@@ -32,6 +39,9 @@ const {
   createOperationsTask,
   startTaskSession,
   stopTaskSession,
+  listWeeklyMenus,
+  createWeeklyMenu,
+  copyPreviousWeeklyMenu,
 } = require("../controllers/operationsController");
 
 const tenantId = "64a000000000000000000001";
@@ -214,5 +224,84 @@ describe("independent task timer handlers", () => {
     expect(session.endedAt).toBeInstanceOf(Date);
     expect(session.save).toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledWith({ session });
+  });
+});
+
+describe("weekly menu handlers", () => {
+  test("limits staff menu reads to published menus in their tenant", async () => {
+    const menus = [{ status: "published" }];
+    const query = { sort: jest.fn(), lean: jest.fn().mockResolvedValue(menus) };
+    query.sort.mockReturnValue(query);
+    WeeklyMenu.find.mockReturnValue(query);
+    const response = makeResponse();
+
+    await listWeeklyMenus({ user: { tenantId, role: "staff" }, query: {} }, response);
+
+    expect(WeeklyMenu.find).toHaveBeenCalledWith({ tenantId, status: "published" });
+    expect(response.json).toHaveBeenCalledWith({ menus });
+  });
+
+  test("normalizes new menu dates to Monday and validates meals", async () => {
+    const menu = { weekStartDate: new Date("2026-10-05T00:00:00.000Z") };
+    WeeklyMenu.create.mockResolvedValue(menu);
+    const response = makeResponse();
+
+    await createWeeklyMenu({
+      user: { tenantId },
+      body: {
+        weekStartDate: "2026-10-07",
+        meals: [{ day: 2, mealName: "Lunch", description: "Soup and bread" }],
+      },
+    }, response);
+
+    expect(WeeklyMenu.create).toHaveBeenCalledWith({
+      tenantId,
+      weekStartDate: new Date("2026-10-05T00:00:00.000Z"),
+      meals: [{ day: 2, mealName: "Lunch", description: "Soup and bread" }],
+      status: "draft",
+    });
+    expect(response.status).toHaveBeenCalledWith(201);
+  });
+
+  test("requires explicit replacement when the selected week already has a menu", async () => {
+    const previous = {
+      meals: [{ day: 0, mealName: "Breakfast", description: "Oatmeal" }],
+    };
+    const previousQuery = { lean: jest.fn().mockResolvedValue(previous) };
+    WeeklyMenu.findOne
+      .mockReturnValueOnce(previousQuery)
+      .mockResolvedValueOnce({ _id: "existing-menu" });
+    const response = makeResponse();
+
+    await copyPreviousWeeklyMenu({
+      user: { tenantId },
+      body: { weekStartDate: "2026-10-12" },
+    }, response);
+
+    expect(response.status).toHaveBeenCalledWith(409);
+    expect(response.json).toHaveBeenCalledWith(expect.objectContaining({ code: "MENU_EXISTS" }));
+    expect(WeeklyMenu.create).not.toHaveBeenCalled();
+  });
+
+  test("copies previous week's meals as a draft after replacement is confirmed", async () => {
+    const previous = {
+      meals: [{ day: 3, mealName: "Dinner", description: "Vegetable pasta" }],
+    };
+    const previousQuery = { lean: jest.fn().mockResolvedValue(previous) };
+    const current = { meals: [], status: "published", save: jest.fn().mockResolvedValue(undefined) };
+    WeeklyMenu.findOne
+      .mockReturnValueOnce(previousQuery)
+      .mockResolvedValueOnce(current);
+    const response = makeResponse();
+
+    await copyPreviousWeeklyMenu({
+      user: { tenantId },
+      body: { weekStartDate: "2026-10-12", replace: true },
+    }, response);
+
+    expect(current.meals).toEqual(previous.meals);
+    expect(current.status).toBe("draft");
+    expect(current.save).toHaveBeenCalled();
+    expect(response.json).toHaveBeenCalledWith({ menu: current });
   });
 });

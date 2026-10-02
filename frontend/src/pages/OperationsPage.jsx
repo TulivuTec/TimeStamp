@@ -4,12 +4,14 @@ import ShiftNoteTemplate from "../components/ShiftNoteTemplate";
 import TrainingTrackerPanel from "../components/TrainingTrackerPanel";
 import ActivitySchedulePanel from "../components/ActivitySchedulePanel";
 import OperationsWorkspacePanel from "../components/OperationsWorkspacePanel";
+import WeeklyMenuPanel from "../components/WeeklyMenuPanel";
 
 export default function OperationsPage() {
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
       <Header title="Operations" />
       <OperationsWorkspacePanel />
+      <WeeklyMenuPanel />
       <ShiftNoteTemplate />
       <TrainingTrackerPanel />
       <ActivitySchedulePanel />

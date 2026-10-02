@@ -100,6 +100,16 @@ Published weekly activities are available through `GET /activities/schedules`. A
 
 Only one task timer may be active per staff member at a time. Task timers can run whether the staff member is clocked in or out and do not modify timeclock entries.
 
+### Weekly menus (Admin-managed, staff-visible when published)
+
+- `GET /operations/menus?from=<ISO>&to=<ISO>` returns `{ menus }`; staff receive published menus only.
+- `POST /operations/menus` (Admin-only) body: `{ weekStartDate, meals? }`; dates are normalized to Monday and new menus start as drafts.
+- `PATCH /operations/menus/:id` (Admin-only) accepts `{ meals? }` and/or `{ status: "draft" | "published" }`.
+- `DELETE /operations/menus/:id` (Admin-only) deletes a menu.
+- `POST /operations/menus/copy-previous` (Admin-only) body: `{ weekStartDate, replace? }`; copies the prior week's meals into a draft. Existing menus return `409 { code: "MENU_EXISTS" }` unless `replace: true` is supplied.
+
+Meals contain `{ day, mealName, description? }`, where day is `0` for Monday through `6` for Sunday. Published meals appear on their date in the shared calendar.
+
 ## Admin (`/admin`) (Admin-only)
 
 - `GET /admin/timelogs`:

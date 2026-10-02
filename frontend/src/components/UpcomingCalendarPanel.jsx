@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listSchedules } from "../services/activities";
-import { listCalendarEvents } from "../services/operations";
+import { listCalendarEvents, listWeeklyMenus } from "../services/operations";
 
 function toActivityDate(schedule, activity) {
   const [year, month, day] = new Date(schedule.weekStartDate).toISOString().slice(0, 10).split("-").map(Number);
@@ -15,11 +15,16 @@ export default function UpcomingCalendarPanel() {
 
   useEffect(() => {
     let cancelled = false;
+    const now = new Date();
+    const from = new Date(now);
+    const to = new Date(now);
+    to.setDate(to.getDate() + 15);
     Promise.all([
-      listCalendarEvents({ from: new Date().toISOString() }),
+      listCalendarEvents({ from: now.toISOString(), to: to.toISOString() }),
       listSchedules(),
+      listWeeklyMenus({ from: from.toISOString(), to: to.toISOString() }),
     ])
-      .then(([events, schedules]) => {
+      .then(([events, schedules, menus]) => {
         if (cancelled) return;
         const upcomingEvents = events.map((event) => ({
           key: event._id,
@@ -35,9 +40,21 @@ export default function UpcomingCalendarPanel() {
             startAt: toActivityDate(schedule, activity),
             kind: "Activity",
           })));
-        const now = Date.now();
-        setItems([...upcomingEvents, ...upcomingActivities]
-          .filter((item) => item.startAt.getTime() >= now)
+        const upcomingMeals = menus
+          .filter((menu) => menu.status === "published")
+          .flatMap((menu) => (menu.meals || []).map((meal, index) => ({
+            key: `${menu._id}-${meal._id || index}`,
+            title: meal.mealName,
+            details: meal.description || "",
+            startAt: toActivityDate(menu, { day: meal.day, time: "00:00" }),
+            kind: "Menu",
+          })));
+        const currentTime = Date.now();
+        const todayStart = new Date(now);
+        todayStart.setHours(0, 0, 0, 0);
+        setItems([...upcomingEvents, ...upcomingActivities, ...upcomingMeals]
+          .filter((item) => item.startAt.getTime() >= (item.kind === "Menu" ? todayStart.getTime() : currentTime)
+            && item.startAt.getTime() <= to.getTime())
           .sort((a, b) => a.startAt - b.startAt)
           .slice(0, 4));
       })
@@ -64,6 +81,7 @@ export default function UpcomingCalendarPanel() {
               <div style={{ minWidth: 0 }}>
                 <strong style={{ overflowWrap: "anywhere" }}>{item.title}</strong>
                 <span style={{ marginLeft: 8, color: "#64748b", fontSize: 12 }}>{item.kind}</span>
+                {item.details && <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>{item.details}</div>}
               </div>
               <time dateTime={item.startAt.toISOString()} style={{ color: "#475569", fontSize: 13, whiteSpace: "nowrap" }}>
                 {item.startAt.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
