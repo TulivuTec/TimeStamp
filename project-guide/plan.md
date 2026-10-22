@@ -93,6 +93,23 @@ This document outlines the roadmap for transitioning to Clerk authentication, im
 - [x] PayrollRun and PayrollRunItem status reconciliation wired to all Gusto event types
 - [x] CORS fix deployed — `https://api.timecapcha.app` added to allowed origins
 
+### Operations Task Assignment & Reminders — IMPLEMENTED (Oct 21, 2026; needs live verification)
+- [x] Admins can assign Operations tasks to an active caregiver in the same facility and set a custom reminder date/time
+- [x] Caregiver dashboard shows "my tasks" (`GET /api/operations/tasks/mine`) and lets the assignee update status only
+- [x] Reminder scheduler (`backend/utils/operationsTaskReminders.js`) polls every 60s, atomically claims due tasks, and sends email + Web Push to the assigned caregiver only; per-channel retry, expired subscriptions pruned
+- [x] Push subscriptions stored per device (`PushSubscription`); service worker `frontend/public/sw.js`
+- [x] 14 new unit tests (backend suite: 69 passing)
+- [ ] Generate VAPID keys and set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` in Render (see `project-guide/setup.md`); confirm SMTP is configured
+- [ ] End-to-end test on deployed app: assign task with near-future reminder, confirm email + phone push; iPhone needs site added to Home Screen
+- [ ] Note: scheduler runs in the web process; a sleeping host delays reminders
+
+### Security Review — Oct 21, 2026
+- [x] Stripe `invoice.payment_succeeded` now ignores invoices not belonging to the tenant's current subscription and re-verifies status with Stripe (3 tests)
+- [ ] Legacy JWT path in `authMiddleware.js` trusts token role and ignores `isActive` — fail closed
+- [ ] Gusto is parked: set `PAYROLL_PROVIDER_MODE=disabled`, gate the temporary OAuth callback in `server.js` (logs tokens), revoke stored `GustoToken` records
+- [ ] Remove/gate `/api/test` and `ENABLE_MOCK_API` mock routes (confirm unset in production)
+- [ ] Add auth + rate limiting to `/api/dictate-file`
+
 ### Before Going Live — Required
 - [x] Set `ENABLE_DEV_BOOTSTRAP=false` in Render — confirmed `NODE_ENV=production` disables dev bootstrap
 - [x] Replace `JWT_SECRET=supersecretkey123` with a strong random secret in Render

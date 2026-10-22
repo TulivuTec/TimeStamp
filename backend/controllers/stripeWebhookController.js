@@ -16,6 +16,17 @@ function getPurchaseRecipient(session) {
   );
 }
 
+function getStripeObjectId(value) {
+  return typeof value === "string" ? value : value?.id || null;
+}
+
+function getInvoiceSubscriptionId(invoice) {
+  return getStripeObjectId(
+    invoice?.subscription ||
+      invoice?.parent?.subscription_details?.subscription
+  );
+}
+
 function formatMoneyFromMinorUnits(amount, currency) {
   if (typeof amount !== "number" || Number.isNaN(amount)) return null;
 
@@ -209,11 +220,30 @@ async function handleInvoicePaymentSucceeded(invoice) {
   const tenant = await findTenantFromEventObject(invoice);
   if (!tenant) return;
 
-  if (tenant.subscriptionStatus === "past_due") {
-    tenant.subscriptionStatus = "active";
-    tenant.planSelected = true;
-    await tenant.save();
+  const invoiceSubscriptionId = getInvoiceSubscriptionId(invoice);
+  if (
+    !invoiceSubscriptionId ||
+    invoiceSubscriptionId !== tenant.stripeSubscriptionId
+  ) {
+    return;
   }
+
+  const stripe = getStripeClient();
+  const subscription = await stripe.subscriptions.retrieve(invoiceSubscriptionId);
+  const subscriptionCustomerId = getStripeObjectId(subscription?.customer);
+  const invoiceCustomerId = getStripeObjectId(invoice?.customer);
+
+  if (
+    !subscription ||
+    subscription.id !== tenant.stripeSubscriptionId ||
+    (tenant.stripeCustomerId &&
+      subscriptionCustomerId !== tenant.stripeCustomerId) ||
+    (invoiceCustomerId && invoiceCustomerId !== subscriptionCustomerId)
+  ) {
+    return;
+  }
+
+  await applySubscriptionToTenant(tenant, subscription);
 }
 
 async function stripeWebhookHandler(req, res) {

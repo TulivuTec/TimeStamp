@@ -38,6 +38,34 @@ export async function deleteOperationsTask(id) {
   await api.delete(`/operations/tasks/${id}`);
 }
 
+export async function listTaskAssignees() {
+  const response = await api.get("/operations/tasks/assignees");
+  return Array.isArray(response.data?.staff) ? response.data.staff : [];
+}
+
+export async function listMyOperationsTasks() {
+  const response = await api.get("/operations/tasks/mine");
+  return Array.isArray(response.data?.tasks) ? response.data.tasks : [];
+}
+
+export async function updateMyOperationsTaskStatus(id, status) {
+  const response = await api.patch(`/operations/tasks/mine/${id}`, { status });
+  return response.data?.task || null;
+}
+
+export async function getPushConfig() {
+  const response = await api.get("/operations/notifications/push-config");
+  return response.data?.publicKey || null;
+}
+
+export async function savePushSubscription(subscription) {
+  await api.post("/operations/notifications/push-subscriptions", subscription);
+}
+
+export async function deletePushSubscription(endpoint) {
+  await api.delete("/operations/notifications/push-subscriptions", { data: { endpoint } });
+}
+
 export async function listMyTaskSessions() {
   const response = await api.get("/operations/task-sessions/my");
   return Array.isArray(response.data?.sessions) ? response.data.sessions : [];

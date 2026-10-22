@@ -88,7 +88,23 @@ function applyTaskFields(body, target, creating) {
     if (dueDate === undefined) return "Due date must be valid.";
     target.dueDate = dueDate;
   }
+  if (creating || Object.hasOwn(body, "reminderAt")) {
+    const reminderAt = parseDate(body.reminderAt);
+    if (reminderAt === undefined) return "Reminder date and time must be valid.";
+    target.reminderAt = reminderAt;
+  }
   return null;
+}
+
+async function resolveTaskAssignee(assigneeId, tenantId) {
+  if (!assigneeId) return null;
+  if (!mongoose.Types.ObjectId.isValid(assigneeId)) return undefined;
+  return Staff.findOne({
+    _id: assigneeId,
+    tenantId,
+    role: "staff",
+    isActive: { $ne: false },
+  }).select("_id");
 }
 
 function normalizeWeekStart(value) {
@@ -338,6 +354,66 @@ async function listOperationsTasks(req, res) {
   }
 }
 
+async function listTaskAssignees(req, res) {
+  try {
+    const tenantId = await requireTenantId(req, res);
+    if (!tenantId) return;
+    const staff = await Staff.find({
+      tenantId,
+      role: "staff",
+      isActive: { $ne: false },
+    })
+      .select("_id firstName lastName email")
+      .sort({ firstName: 1, lastName: 1 })
+      .lean();
+    return res.json({ staff });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Server error" });
+  }
+}
+
+async function listMyOperationsTasks(req, res) {
+  try {
+    const tenantId = await requireTenantId(req, res);
+    if (!tenantId) return;
+    const staff = await resolveCurrentStaff(req);
+    if (!staff || String(staff.tenantId) !== String(tenantId)) {
+      return res.status(403).json({ message: "Staff record not found in this tenant." });
+    }
+    const tasks = await OperationsTask.find({ tenantId, assignedTo: staff._id })
+      .sort({ dueDate: 1, createdAt: -1 })
+      .lean();
+    return res.json({ tasks });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Server error" });
+  }
+}
+
+async function updateMyOperationsTaskStatus(req, res) {
+  try {
+    const tenantId = await requireTenantId(req, res);
+    if (!tenantId) return;
+    const staff = await resolveCurrentStaff(req);
+    if (!staff || String(staff.tenantId) !== String(tenantId)) {
+      return res.status(403).json({ message: "Staff record not found in this tenant." });
+    }
+    if (!TASK_STATUSES.has(req.body?.status)) {
+      return res.status(400).json({ message: "Status must be todo, doing, or done." });
+    }
+    const task = await OperationsTask.findOne({
+      _id: req.params.id,
+      tenantId,
+      assignedTo: staff._id,
+    });
+    if (!task) return res.status(404).json({ message: "Assigned task not found." });
+    task.status = req.body.status;
+    await task.save();
+    return res.json({ task });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Server error" });
+  }
+}
+
 async function createOperationsTask(req, res) {
   try {
     const tenantId = await requireTenantId(req, res);
@@ -349,7 +425,19 @@ async function createOperationsTask(req, res) {
     const fields = {};
     const validationError = applyTaskFields(req.body, fields, true);
     if (validationError) return res.status(400).json({ message: validationError });
-    const task = await OperationsTask.create({ ...fields, tenantId, createdBy: staff._id });
+    const assignee = await resolveTaskAssignee(req.body?.assignedTo, tenantId);
+    if (assignee === undefined || (req.body?.assignedTo && !assignee)) {
+      return res.status(400).json({ message: "Choose an active caregiver in this facility." });
+    }
+    if (fields.reminderAt && !assignee) {
+      return res.status(400).json({ message: "Assign the task to a caregiver to set a reminder." });
+    }
+    const task = await OperationsTask.create({
+      ...fields,
+      tenantId,
+      assignedTo: assignee?._id || null,
+      createdBy: staff._id,
+    });
     return res.status(201).json({ task });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Server error" });
@@ -364,6 +452,23 @@ async function updateOperationsTask(req, res) {
     if (!task) return res.status(404).json({ message: "Task not found." });
     const validationError = applyTaskFields(req.body, task, false);
     if (validationError) return res.status(400).json({ message: validationError });
+    if (Object.hasOwn(req.body, "assignedTo")) {
+      const assignee = await resolveTaskAssignee(req.body.assignedTo, tenantId);
+      if (req.body.assignedTo && !assignee) {
+        return res.status(400).json({ message: "Choose an active caregiver in this facility." });
+      }
+      task.assignedTo = assignee?._id || null;
+    }
+    if (task.reminderAt && !task.assignedTo) {
+      return res.status(400).json({ message: "Assign the task to a caregiver to set a reminder." });
+    }
+    const reminderChanged =
+      task.isModified("reminderAt") || task.isModified("assignedTo");
+    if (reminderChanged) {
+      task.reminderEmailSentAt = null;
+      task.reminderPushSentAt = null;
+      task.reminderLockUntil = null;
+    }
     await task.save();
     return res.json({ task });
   } catch (error) {
@@ -464,6 +569,9 @@ module.exports = {
   updateCalendarEvent,
   deleteCalendarEvent,
   listOperationsTasks,
+  listTaskAssignees,
+  listMyOperationsTasks,
+  updateMyOperationsTaskStatus,
   createOperationsTask,
   updateOperationsTask,
   deleteOperationsTask,

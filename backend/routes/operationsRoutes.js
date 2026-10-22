@@ -8,6 +8,9 @@ const {
   updateCalendarEvent,
   deleteCalendarEvent,
   listOperationsTasks,
+  listTaskAssignees,
+  listMyOperationsTasks,
+  updateMyOperationsTaskStatus,
   createOperationsTask,
   updateOperationsTask,
   deleteOperationsTask,
@@ -21,9 +24,21 @@ const {
   deleteWeeklyMenu,
   copyPreviousWeeklyMenu,
 } = require("../controllers/operationsController");
+const {
+  getPushConfiguration,
+  savePushSubscription,
+  deletePushSubscription,
+} = require("../controllers/operationsNotificationController");
 
 router.use(auth);
 
+router.get("/notifications/push-config", getPushConfiguration);
+router.post("/notifications/push-subscriptions", savePushSubscription);
+router.delete("/notifications/push-subscriptions", deletePushSubscription);
+
+router.get("/tasks/mine", authorizeRoles("admin", "staff"), listMyOperationsTasks);
+router.patch("/tasks/mine/:id", authorizeRoles("admin", "staff"), updateMyOperationsTaskStatus);
+router.get("/tasks/assignees", authorizeRoles("admin"), listTaskAssignees);
 router.get("/calendar-events", authorizeRoles("admin", "staff"), listCalendarEvents);
 router.post("/calendar-events", authorizeRoles("admin", "staff"), createCalendarEvent);
 router.patch("/calendar-events/:id", authorizeRoles("admin", "staff"), updateCalendarEvent);

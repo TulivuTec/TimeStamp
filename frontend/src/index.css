@@ -184,7 +184,7 @@ a {
 }
 
 .operationsTaskForm {
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1.5fr) 160px auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1.3fr) 150px minmax(180px, 1fr) minmax(210px, 1fr) auto;
 }
 
 .operationsKanbanBoard {

@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import ShiftNoteTemplate from "../components/ShiftNoteTemplate";
 import TaskTimerPanel from "../components/TaskTimerPanel";
 import UpcomingCalendarPanel from "../components/UpcomingCalendarPanel";
+import MyOperationsTasksPanel from "../components/MyOperationsTasksPanel";
 import api from "../services/api";
 import { listMyJobs } from "../services/jobs";
 import { getMe } from "../services/me";
@@ -401,6 +402,7 @@ const CaregiverDashboard = () => {
           </div>
         )}
 
+        <MyOperationsTasksPanel />
         <UpcomingCalendarPanel />
         <TaskTimerPanel />
 

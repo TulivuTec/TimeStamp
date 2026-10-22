@@ -21,6 +21,7 @@ const jobRoutes = require("./routes/jobRoutes");
 const trainingRoutes = require("./routes/trainingRoutes");
 const activityRoutes = require("./routes/activityRoutes");
 const operationsRoutes = require("./routes/operationsRoutes");
+const { startOperationsTaskReminderScheduler } = require("./utils/operationsTaskReminders");
 const { stripeWebhookHandler } = require("./controllers/stripeWebhookController");
 const { handlePayrollWebhook } = require("./controllers/payrollController");
 
@@ -35,6 +36,7 @@ process.on("unhandledRejection", (reason) => {
 
 // 1. Connect to MongoDB
 connectDB();
+startOperationsTaskReminderScheduler();
 
 // 2. ✅ FIXED CORS - Single cors() middleware with dynamic origin validation
 // Supports optional comma-separated ALLOWED_ORIGINS env var for additional deployments.
@@ -383,6 +385,5 @@ app.listen(PORT, () => {
   console.log(`🔍 CORS Debug: http://localhost:${PORT}/api/debug-cors`);
   console.log(`📊 Admin Logs: http://localhost:${PORT}/api/admin/timelogs`);
 });
-
 
 

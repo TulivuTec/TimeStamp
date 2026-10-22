@@ -36,6 +36,12 @@ Follow these steps to get the TimeStamp project running on your local machine.
    SMTP_PASS=replace_with_mail_password
    MAIL_FROM=TimeStamp <mailer@example.com>
 
+   # Optional phone push notifications for Operations task reminders
+   # Generate with: node -e "console.log(require('web-push').generateVAPIDKeys())"
+   VAPID_PUBLIC_KEY=your_vapid_public_key
+   VAPID_PRIVATE_KEY=your_vapid_private_key
+   VAPID_SUBJECT=mailto:admin@example.com
+
    # Required for Stripe paid plans
    APP_BASE_URL=http://localhost:3000
    STRIPE_SECRET_KEY=your_stripe_secret_key
@@ -51,6 +57,11 @@ Follow these steps to get the TimeStamp project running on your local machine.
    STRIPE_PORTAL_RETURN_URL=http://localhost:3000/admin/billing
    ```
    You can copy the starter values from `backend/.env.example`.
+   Email reminders use the SMTP settings above. Phone push reminders require the
+   three VAPID settings; keep the private key secret and use the same keys across
+   all backend instances. Caregivers must enable notifications from their signed-in
+   dashboard on an HTTPS site (localhost is supported for development). On iPhones,
+   push generally requires adding the site to the Home Screen and opening it there.
 4. Start the development server:
    ```bash
    npm run dev

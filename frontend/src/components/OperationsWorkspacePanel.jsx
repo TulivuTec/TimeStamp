@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   createOperationsTask,
   deleteOperationsTask,
+  listTaskAssignees,
   listOperationsTasks,
   listTaskSessions,
   updateOperationsTask,
@@ -12,7 +13,7 @@ const STATUSES = [
   { value: "doing", label: "Doing" },
   { value: "done", label: "Done" },
 ];
-const EMPTY_FORM = { title: "", details: "", dueDate: "" };
+const EMPTY_FORM = { title: "", details: "", dueDate: "", reminderAt: "", assignedTo: "" };
 
 function toDateInput(value) {
   return value ? new Date(value).toISOString().slice(0, 10) : "";
@@ -20,6 +21,13 @@ function toDateInput(value) {
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleDateString() : "No due date";
+}
+
+function toDateTimeInput(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
 }
 
 function formatDuration(startedAt, endedAt) {
@@ -33,6 +41,7 @@ function formatDuration(startedAt, endedAt) {
 export default function OperationsWorkspacePanel() {
   const [view, setView] = useState("board");
   const [tasks, setTasks] = useState([]);
+  const [assignees, setAssignees] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
@@ -41,9 +50,14 @@ export default function OperationsWorkspacePanel() {
 
   const refresh = async () => {
     try {
-      const [nextTasks, nextSessions] = await Promise.all([listOperationsTasks(), listTaskSessions()]);
+      const [nextTasks, nextSessions, nextAssignees] = await Promise.all([
+        listOperationsTasks(),
+        listTaskSessions(),
+        listTaskAssignees(),
+      ]);
       setTasks(nextTasks);
       setSessions(nextSessions);
+      setAssignees(nextAssignees);
       setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Could not load Operations data.");
@@ -61,7 +75,12 @@ export default function OperationsWorkspacePanel() {
     event.preventDefault();
     setBusy(true);
     setError("");
-    const payload = { ...form, dueDate: form.dueDate || null };
+    const payload = {
+      ...form,
+      dueDate: form.dueDate || null,
+      reminderAt: form.reminderAt ? new Date(form.reminderAt).toISOString() : null,
+      assignedTo: form.assignedTo || null,
+    };
     try {
       if (editingId) await updateOperationsTask(editingId, payload);
       else await createOperationsTask(payload);
@@ -97,7 +116,13 @@ export default function OperationsWorkspacePanel() {
 
   const beginEdit = (task) => {
     setEditingId(task._id);
-    setForm({ title: task.title, details: task.details || "", dueDate: toDateInput(task.dueDate) });
+    setForm({
+      title: task.title,
+      details: task.details || "",
+      dueDate: toDateInput(task.dueDate),
+      reminderAt: toDateTimeInput(task.reminderAt),
+      assignedTo: task.assignedTo?._id || task.assignedTo || "",
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -119,6 +144,14 @@ export default function OperationsWorkspacePanel() {
             <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} maxLength={120} placeholder="Task title" aria-label="Task title" required style={{ minWidth: 0, padding: 9, border: "1px solid #cbd5e1", borderRadius: 6 }} />
             <input value={form.details} onChange={(event) => setForm((current) => ({ ...current, details: event.target.value }))} maxLength={2000} placeholder="Details (optional)" aria-label="Task details" style={{ minWidth: 0, padding: 9, border: "1px solid #cbd5e1", borderRadius: 6 }} />
             <input type="date" value={form.dueDate} onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))} aria-label="Due date" style={{ minWidth: 0, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }} />
+            <select value={form.assignedTo} onChange={(event) => setForm((current) => ({ ...current, assignedTo: event.target.value }))} aria-label="Assign caregiver" style={{ minWidth: 0, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }}>
+              <option value="">Unassigned</option>
+              {assignees.map((staff) => <option key={staff._id} value={staff._id}>{`${staff.firstName} ${staff.lastName}`.trim()} ({staff.email})</option>)}
+            </select>
+            <label style={{ display: "grid", gap: 4, color: "#475569", fontSize: 12 }}>
+              Email and phone reminder
+              <input type="datetime-local" value={form.reminderAt} onChange={(event) => setForm((current) => ({ ...current, reminderAt: event.target.value }))} disabled={!form.assignedTo} aria-label="Reminder date and time" style={{ minWidth: 0, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }} />
+            </label>
             <div style={{ display: "flex", gap: 6 }}>
               <button type="submit" disabled={busy} style={{ padding: "9px 12px", border: 0, borderRadius: 6, background: "#166534", color: "#fff", cursor: busy ? "wait" : "pointer" }}>{editingId ? "Save" : "Add"}</button>
               {editingId && <button type="button" onClick={resetForm} style={{ padding: "9px 10px", border: "1px solid #cbd5e1", borderRadius: 6, background: "#fff", cursor: "pointer" }}>Cancel</button>}
@@ -135,6 +168,8 @@ export default function OperationsWorkspacePanel() {
                       <strong style={{ overflowWrap: "anywhere" }}>{task.title}</strong>
                       {task.details && <p style={{ whiteSpace: "pre-wrap", margin: "6px 0", color: "#475569", fontSize: 13 }}>{task.details}</p>}
                       <p style={{ margin: "6px 0 10px", color: "#64748b", fontSize: 12 }}>{formatDate(task.dueDate)}</p>
+                      {task.assignedTo && <p style={{ margin: "6px 0 10px", color: "#475569", fontSize: 12 }}>Assigned to: {assignees.find((staff) => staff._id === (task.assignedTo?._id || task.assignedTo))?.firstName || "Caregiver"}</p>}
+                      {task.reminderAt && <p style={{ margin: "6px 0 10px", color: "#475569", fontSize: 12 }}>Reminder: {new Date(task.reminderAt).toLocaleString()}</p>}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <select aria-label={`Move ${task.title}`} value={task.status} onChange={(event) => handleStatusChange(task, event.target.value)} style={{ maxWidth: "100%", padding: "5px 6px", border: "1px solid #cbd5e1", borderRadius: 4 }}>
                           {STATUSES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

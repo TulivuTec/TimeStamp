@@ -5,13 +5,11 @@ import { BrowserRouter, useNavigate } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 
-// Automatically unregister any stale or legacy service worker (sw.js)
+// Register the service worker used for task reminder push notifications.
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  }).catch((err) => console.error("SW unregister failed:", err));
+  navigator.serviceWorker.register("/sw.js").catch((err) => {
+    console.error("Push notification service worker registration failed:", err);
+  });
 }
 
 const publishableKey = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;

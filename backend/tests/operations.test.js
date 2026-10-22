@@ -37,6 +37,8 @@ const {
   createCalendarEvent,
   updateCalendarEvent,
   createOperationsTask,
+  listMyOperationsTasks,
+  updateMyOperationsTaskStatus,
   startTaskSession,
   stopTaskSession,
   listWeeklyMenus,
@@ -134,6 +136,80 @@ describe("Operations Kanban handlers", () => {
 
     expect(response.status).toHaveBeenCalledWith(400);
     expect(OperationsTask.create).not.toHaveBeenCalled();
+  });
+
+  test("assigns a task and reminder only to an active caregiver in the same tenant", async () => {
+    const assignedStaff = { _id: staffId };
+    const assigneeQuery = { select: jest.fn().mockResolvedValue(assignedStaff) };
+    Staff.findOne.mockReturnValue(assigneeQuery);
+    const createdTask = { _id: "task-1" };
+    OperationsTask.create.mockResolvedValue(createdTask);
+    const response = makeResponse();
+    const reminderAt = "2026-10-22T17:30:00.000Z";
+
+    await createOperationsTask({
+      user: { tenantId, staffId },
+      body: { title: "Restock supplies", assignedTo: staffId, reminderAt },
+    }, response);
+
+    expect(Staff.findOne).toHaveBeenCalledWith({
+      _id: staffId,
+      tenantId,
+      role: "staff",
+      isActive: { $ne: false },
+    });
+    expect(OperationsTask.create).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId,
+      assignedTo: staffId,
+      reminderAt: new Date(reminderAt),
+    }));
+    expect(response.status).toHaveBeenCalledWith(201);
+  });
+
+  test("requires a caregiver assignment when setting a reminder", async () => {
+    const response = makeResponse();
+
+    await createOperationsTask({
+      user: { tenantId, staffId },
+      body: { title: "Restock supplies", reminderAt: "2026-10-22T17:30:00.000Z" },
+    }, response);
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(OperationsTask.create).not.toHaveBeenCalled();
+  });
+
+  test("lists tasks only for the signed-in caregiver and tenant", async () => {
+    const tasks = [{ _id: "task-1" }];
+    const query = { sort: jest.fn(), lean: jest.fn().mockResolvedValue(tasks) };
+    query.sort.mockReturnValue(query);
+    OperationsTask.find.mockReturnValue(query);
+    const response = makeResponse();
+
+    await listMyOperationsTasks({ user: { tenantId, staffId } }, response);
+
+    expect(OperationsTask.find).toHaveBeenCalledWith({ tenantId, assignedTo: staffId });
+    expect(response.json).toHaveBeenCalledWith({ tasks });
+  });
+
+  test("lets a caregiver update status only on their assigned task", async () => {
+    const task = { status: "todo", save: jest.fn().mockResolvedValue(undefined) };
+    OperationsTask.findOne.mockResolvedValue(task);
+    const response = makeResponse();
+
+    await updateMyOperationsTaskStatus({
+      user: { tenantId, staffId },
+      params: { id: "task-1" },
+      body: { status: "doing" },
+    }, response);
+
+    expect(OperationsTask.findOne).toHaveBeenCalledWith({
+      _id: "task-1",
+      tenantId,
+      assignedTo: staffId,
+    });
+    expect(task.status).toBe("doing");
+    expect(task.save).toHaveBeenCalled();
+    expect(response.json).toHaveBeenCalledWith({ task });
   });
 });
 
