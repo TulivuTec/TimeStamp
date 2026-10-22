@@ -13,7 +13,7 @@ const STATUSES = [
   { value: "doing", label: "Doing" },
   { value: "done", label: "Done" },
 ];
-const EMPTY_FORM = { title: "", details: "", dueDate: "", reminderAt: "", assignedTo: "" };
+const EMPTY_FORM = { title: "", details: "", dueDate: "", reminderAt: "", reminderEmail: "", assignedTo: "" };
 
 function toDateInput(value) {
   return value ? new Date(value).toISOString().slice(0, 10) : "";
@@ -79,6 +79,7 @@ export default function OperationsWorkspacePanel() {
       ...form,
       dueDate: form.dueDate || null,
       reminderAt: form.reminderAt ? new Date(form.reminderAt).toISOString() : null,
+      reminderEmail: form.reminderEmail.trim(),
       assignedTo: form.assignedTo || null,
     };
     try {
@@ -121,6 +122,7 @@ export default function OperationsWorkspacePanel() {
       details: task.details || "",
       dueDate: toDateInput(task.dueDate),
       reminderAt: toDateTimeInput(task.reminderAt),
+      reminderEmail: task.reminderEmail || "",
       assignedTo: task.assignedTo?._id || task.assignedTo || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -148,9 +150,10 @@ export default function OperationsWorkspacePanel() {
               <option value="">Unassigned</option>
               {assignees.map((staff) => <option key={staff._id} value={staff._id}>{`${staff.firstName} ${staff.lastName}`.trim()} ({staff.email})</option>)}
             </select>
+            <input type="email" value={form.reminderEmail} onChange={(event) => setForm((current) => ({ ...current, reminderEmail: event.target.value }))} maxLength={254} placeholder="Extra reminder email (optional)" aria-label="Extra reminder email" style={{ minWidth: 0, padding: 9, border: "1px solid #cbd5e1", borderRadius: 6 }} />
             <label style={{ display: "grid", gap: 4, color: "#475569", fontSize: 12 }}>
               Email and phone reminder
-              <input type="datetime-local" value={form.reminderAt} onChange={(event) => setForm((current) => ({ ...current, reminderAt: event.target.value }))} disabled={!form.assignedTo} aria-label="Reminder date and time" style={{ minWidth: 0, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }} />
+              <input type="datetime-local" value={form.reminderAt} onChange={(event) => setForm((current) => ({ ...current, reminderAt: event.target.value }))} disabled={!form.assignedTo && !form.reminderEmail.trim()} aria-label="Reminder date and time" style={{ minWidth: 0, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }} />
             </label>
             <div style={{ display: "flex", gap: 6 }}>
               <button type="submit" disabled={busy} style={{ padding: "9px 12px", border: 0, borderRadius: 6, background: "#166534", color: "#fff", cursor: busy ? "wait" : "pointer" }}>{editingId ? "Save" : "Add"}</button>
@@ -169,6 +172,7 @@ export default function OperationsWorkspacePanel() {
                       {task.details && <p style={{ whiteSpace: "pre-wrap", margin: "6px 0", color: "#475569", fontSize: 13 }}>{task.details}</p>}
                       <p style={{ margin: "6px 0 10px", color: "#64748b", fontSize: 12 }}>{formatDate(task.dueDate)}</p>
                       {task.assignedTo && <p style={{ margin: "6px 0 10px", color: "#475569", fontSize: 12 }}>Assigned to: {assignees.find((staff) => staff._id === (task.assignedTo?._id || task.assignedTo))?.firstName || "Caregiver"}</p>}
+                      {task.reminderEmail && <p style={{ margin: "6px 0 10px", color: "#475569", fontSize: 12 }}>Also emails: {task.reminderEmail}</p>}
                       {task.reminderAt && <p style={{ margin: "6px 0 10px", color: "#475569", fontSize: 12 }}>Reminder: {new Date(task.reminderAt).toLocaleString()}</p>}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <select aria-label={`Move ${task.title}`} value={task.status} onChange={(event) => handleStatusChange(task, event.target.value)} style={{ maxWidth: "100%", padding: "5px 6px", border: "1px solid #cbd5e1", borderRadius: 4 }}>

@@ -80,7 +80,8 @@ describe("operations task reminders", () => {
     const [filter, update] = OperationsTask.findOneAndUpdate.mock.calls[0];
     expect(filter.status).toEqual({ $ne: "done" });
     expect(filter.reminderAt.$lte).toBeInstanceOf(Date);
-    expect(filter.assignedTo).toEqual({ $ne: null });
+    expect(filter.assignedTo).toBeUndefined();
+    expect(JSON.stringify(filter.$and)).toContain("reminderEmail");
     expect(JSON.stringify(filter.$and)).toContain("reminderLockUntil");
     expect(update.$set.reminderLockUntil.getTime()).toBeGreaterThan(Date.now());
   });
@@ -175,6 +176,26 @@ describe("operations task reminders", () => {
     const set = lastUpdateSet();
     expect(set.reminderEmailSentAt).toBeInstanceOf(Date);
     expect(set.reminderPushSentAt).toBeUndefined();
+  });
+
+  test("emails an extra reminder address alongside the caregiver", async () => {
+    OperationsTask.findOneAndUpdate
+      .mockResolvedValueOnce(makeTask({ reminderEmail: "boss@example.com" }))
+      .mockResolvedValueOnce(null);
+    await processDueTaskReminders();
+    expect(sendMail.mock.calls[0][0].to).toBe("c@example.com,boss@example.com");
+  });
+
+  test("email-only reminder (no assignee) sends email and skips push", async () => {
+    OperationsTask.findOneAndUpdate
+      .mockResolvedValueOnce(makeTask({ assignedTo: null, reminderEmail: "boss@example.com" }))
+      .mockResolvedValueOnce(null);
+    await processDueTaskReminders();
+
+    expect(Staff.findOne).not.toHaveBeenCalled();
+    expect(sendMail.mock.calls[0][0].to).toBe("boss@example.com");
+    expect(webpush.sendNotification).not.toHaveBeenCalled();
+    expect(lastUpdateSet().reminderPushSentAt).toBeInstanceOf(Date);
   });
 
   test("scheduler registers an unref'd interval only once", () => {

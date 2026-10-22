@@ -18,6 +18,7 @@ const operationsTaskSchema = new mongoose.Schema(
     },
     dueDate: { type: Date, default: null },
     reminderAt: { type: Date, default: null },
+    reminderEmail: { type: String, trim: true, lowercase: true, maxlength: 254, default: "" },
     reminderEmailSentAt: { type: Date, default: null },
     reminderPushSentAt: { type: Date, default: null },
     reminderLockUntil: { type: Date, default: null },

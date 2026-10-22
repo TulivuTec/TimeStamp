@@ -93,6 +93,13 @@ function applyTaskFields(body, target, creating) {
     if (reminderAt === undefined) return "Reminder date and time must be valid.";
     target.reminderAt = reminderAt;
   }
+  if (creating || Object.hasOwn(body, "reminderEmail")) {
+    const reminderEmail = String(body.reminderEmail || "").trim().toLowerCase();
+    if (reminderEmail && (reminderEmail.length > 254 || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(reminderEmail))) {
+      return "Reminder email must be a single valid email address.";
+    }
+    target.reminderEmail = reminderEmail;
+  }
   return null;
 }
 
@@ -429,8 +436,8 @@ async function createOperationsTask(req, res) {
     if (assignee === undefined || (req.body?.assignedTo && !assignee)) {
       return res.status(400).json({ message: "Choose an active caregiver in this facility." });
     }
-    if (fields.reminderAt && !assignee) {
-      return res.status(400).json({ message: "Assign the task to a caregiver to set a reminder." });
+    if (fields.reminderAt && !assignee && !fields.reminderEmail) {
+      return res.status(400).json({ message: "Assign a caregiver or enter a reminder email to set a reminder." });
     }
     const task = await OperationsTask.create({
       ...fields,
@@ -459,11 +466,13 @@ async function updateOperationsTask(req, res) {
       }
       task.assignedTo = assignee?._id || null;
     }
-    if (task.reminderAt && !task.assignedTo) {
-      return res.status(400).json({ message: "Assign the task to a caregiver to set a reminder." });
+    if (task.reminderAt && !task.assignedTo && !task.reminderEmail) {
+      return res.status(400).json({ message: "Assign a caregiver or enter a reminder email to set a reminder." });
     }
     const reminderChanged =
-      task.isModified("reminderAt") || task.isModified("assignedTo");
+      task.isModified("reminderAt") ||
+      task.isModified("assignedTo") ||
+      task.isModified("reminderEmail");
     if (reminderChanged) {
       task.reminderEmailSentAt = null;
       task.reminderPushSentAt = null;

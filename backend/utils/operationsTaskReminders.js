@@ -20,17 +20,18 @@ function getVapidConfig() {
 
 async function sendTaskEmail(task, staff) {
   if (!isMailerConfigured()) throw new Error("Task reminder email is not configured.");
-  if (!staff?.email) throw new Error("Assigned caregiver has no email address.");
+  const recipients = [...new Set([staff?.email, task.reminderEmail].filter(Boolean))];
+  if (!recipients.length) throw new Error("Task reminder has no email recipient.");
   const dueDate = task.dueDate
     ? new Date(task.dueDate).toLocaleString()
     : "not specified";
   await sendMail({
-    to: staff.email,
+    to: recipients.join(","),
     subject: `Task reminder: ${task.title}`,
     text: [
-      `Hi ${staff.firstName || "there"},`,
+      `Hi ${staff?.firstName || "there"},`,
       "",
-      `This is a reminder for your assigned task: ${task.title}`,
+      `This is a task reminder: ${task.title}`,
       task.details ? `Details: ${task.details}` : null,
       `Due: ${dueDate}`,
       "",
@@ -85,8 +86,13 @@ async function claimDueReminder(now) {
     {
       status: { $ne: "done" },
       reminderAt: { $lte: now },
-      assignedTo: { $ne: null },
       $and: [
+        {
+          $or: [
+            { assignedTo: { $ne: null } },
+            { reminderEmail: { $nin: [null, ""] } },
+          ],
+        },
         {
           $or: [
             { reminderLockUntil: null },
@@ -107,13 +113,15 @@ async function claimDueReminder(now) {
 }
 
 async function deliverOneReminder(task) {
-  const staff = await Staff.findOne({
-    _id: task.assignedTo,
-    tenantId: task.tenantId,
-    role: "staff",
-    isActive: { $ne: false },
-  }).select("_id email firstName");
-  if (!staff) {
+  const staff = task.assignedTo
+    ? await Staff.findOne({
+        _id: task.assignedTo,
+        tenantId: task.tenantId,
+        role: "staff",
+        isActive: { $ne: false },
+      }).select("_id email firstName")
+    : null;
+  if (!staff && !task.reminderEmail) {
     console.error("Task reminder skipped: assigned caregiver is missing or inactive.", {
       taskId: task._id.toString(),
     });
@@ -145,7 +153,7 @@ async function deliverOneReminder(task) {
 
   if (!task.reminderPushSentAt) {
     try {
-      await sendTaskPush(task, staff);
+      if (staff) await sendTaskPush(task, staff);
       updates.reminderPushSentAt = now;
     } catch (error) {
       failed = true;
