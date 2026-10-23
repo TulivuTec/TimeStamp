@@ -11,6 +11,7 @@ jest.mock("../models/PushSubscription", () => ({
   deleteOne: jest.fn(),
 }));
 jest.mock("../models/staff", () => ({ findOne: jest.fn() }));
+jest.mock("../models/Tenant", () => ({ findById: jest.fn() }));
 jest.mock("../utils/mailer", () => ({
   isMailerConfigured: jest.fn(),
   sendMail: jest.fn(),
@@ -20,6 +21,7 @@ const webpush = require("web-push");
 const OperationsTask = require("../models/OperationsTask");
 const PushSubscription = require("../models/PushSubscription");
 const Staff = require("../models/staff");
+const Tenant = require("../models/Tenant");
 const { isMailerConfigured, sendMail } = require("../utils/mailer");
 const {
   processDueTaskReminders,
@@ -61,6 +63,7 @@ describe("operations task reminders", () => {
     webpush.sendNotification.mockResolvedValue();
     OperationsTask.updateOne.mockResolvedValue({});
     mockStaff(staffRecord);
+    Tenant.findById.mockReturnValue({ select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue({ name: "Acme Care" }) }) });
     mockSubscriptions([{ _id: "s1", endpoint: "https://fcm.googleapis.com/x", keys: { p256dh: "a", auth: "b" } }]);
     errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });

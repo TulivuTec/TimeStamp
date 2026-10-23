@@ -93,6 +93,17 @@ function applyTaskFields(body, target, creating) {
     if (reminderAt === undefined) return "Reminder date and time must be valid.";
     target.reminderAt = reminderAt;
   }
+  if (creating || Object.hasOwn(body, "reminderTimeZone")) {
+    const zone = String(body.reminderTimeZone || "").trim();
+    if (zone) {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: zone });
+      } catch {
+        return "Reminder time zone is not valid.";
+      }
+    }
+    target.reminderTimeZone = zone;
+  }
   if (creating || Object.hasOwn(body, "reminderEmail")) {
     const reminderEmail = String(body.reminderEmail || "").trim().toLowerCase();
     if (reminderEmail && (reminderEmail.length > 254 || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(reminderEmail))) {

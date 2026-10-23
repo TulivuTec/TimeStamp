@@ -80,6 +80,7 @@ export default function OperationsWorkspacePanel() {
       dueDate: form.dueDate || null,
       reminderAt: form.reminderAt ? new Date(form.reminderAt).toISOString() : null,
       reminderEmail: form.reminderEmail.trim(),
+      reminderTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
       assignedTo: form.assignedTo || null,
     };
     try {

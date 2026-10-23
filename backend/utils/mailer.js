@@ -55,7 +55,7 @@ function createTransport() {
   return nodemailer.createTransport(transportOptions);
 }
 
-async function sendMail({ to, subject, text, html, attachments }) {
+async function sendMail({ to, subject, text, html, attachments, fromName }) {
   const cfg = getMailConfig();
   if (!cfg.from) {
     const err = new Error("MAIL_FROM is not configured");
@@ -65,8 +65,15 @@ async function sendMail({ to, subject, text, html, attachments }) {
 
   const transport = createTransport();
 
+  let from = cfg.from;
+  const safeName = String(fromName || "").replace(/[\r\n"<>]/g, "").trim();
+  if (safeName) {
+    const address = (cfg.from.match(/<([^>]+)>/) || [null, cfg.from])[1].trim();
+    from = { name: safeName.slice(0, 80), address };
+  }
+
   return transport.sendMail({
-    from: cfg.from,
+    from,
     to,
     subject,
     text,

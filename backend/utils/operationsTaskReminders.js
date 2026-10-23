@@ -2,6 +2,7 @@ const webpush = require("web-push");
 const OperationsTask = require("../models/OperationsTask");
 const PushSubscription = require("../models/PushSubscription");
 const Staff = require("../models/staff");
+const Tenant = require("../models/Tenant");
 const { isMailerConfigured, sendMail } = require("./mailer");
 
 const REMINDER_POLL_INTERVAL_MS = 60 * 1000;
@@ -22,18 +23,35 @@ async function sendTaskEmail(task, staff) {
   if (!isMailerConfigured()) throw new Error("Task reminder email is not configured.");
   const recipients = [...new Set([staff?.email, task.reminderEmail].filter(Boolean))];
   if (!recipients.length) throw new Error("Task reminder has no email recipient.");
+  const tenant = task.tenantId ? await Tenant.findById(task.tenantId).select("name").lean() : null;
+  const facilityName = tenant?.name || "TimeStamp";
+  const reminderStamp = task.reminderAt ? new Date(task.reminderAt) : new Date();
+  const timeZone = task.reminderTimeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  }).format(reminderStamp);
   const dueDate = task.dueDate
-    ? new Date(task.dueDate).toLocaleString()
+    ? new Intl.DateTimeFormat("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone,
+      }).format(new Date(task.dueDate))
     : "not specified";
+  const greeting = staff?.firstName ? `Hi ${staff.firstName},` : "Hi there,";
   await sendMail({
+    fromName: facilityName,
     to: recipients.join(","),
     subject: `Task reminder: ${task.title}`,
     text: [
-      `Hi ${staff?.firstName || "there"},`,
+      greeting,
       "",
-      `This is a task reminder: ${task.title}`,
+      `This is a task reminder from ${facilityName}.`,
+      `Task: ${task.title}`,
       task.details ? `Details: ${task.details}` : null,
       `Due: ${dueDate}`,
+      `Reminder set for: ${dateLabel}`,
       "",
       "Sign in to TimeStamp to review and update the task.",
     ]
